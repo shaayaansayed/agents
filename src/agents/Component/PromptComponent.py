@@ -2,6 +2,7 @@ from abc import abstractmethod
 
 
 class PromptComponent:
+
     def __init__(self):
         pass
 
@@ -9,7 +10,9 @@ class PromptComponent:
     def get_prompt(self, agent):
         pass
 
+
 class TaskComponent(PromptComponent):
+
     def __init__(self, task):
         super().__init__()
         self.task = task
@@ -19,6 +22,7 @@ class TaskComponent(PromptComponent):
 
 
 class OutputComponent(PromptComponent):
+
     def __init__(self, output):
         super().__init__()
         self.output = output
@@ -29,14 +33,17 @@ class OutputComponent(PromptComponent):
 
 
 class SystemComponent(PromptComponent):
-    def __init__(self,system_prompt):
+
+    def __init__(self, system_prompt):
         super().__init__()
         self.system_prompt = system_prompt
-    
+
     def get_prompt(self, agent):
         return self.system_prompt
 
+
 class LastComponent(PromptComponent):
+
     def __init__(self, last_prompt):
         super().__init__()
         self.last_prompt = last_prompt
@@ -46,9 +53,6 @@ class LastComponent(PromptComponent):
 
 
 class StyleComponent(PromptComponent):
-    """
-    角色、风格组件
-    """
 
     def __init__(self, role):
         super().__init__()
@@ -62,12 +66,13 @@ class StyleComponent(PromptComponent):
 
 
 class RuleComponent(PromptComponent):
+
     def __init__(self, rule):
         super().__init__()
         self.rule = rule
 
     def get_prompt(self, agent):
-        return f"""The rule you need to follow is:\n{self.rule}.\n"""
+        return f"""The rule you need to follow is:\n\n{self.rule}.\n"""
 
 
 class DemonstrationComponent(PromptComponent):
@@ -78,7 +83,6 @@ class DemonstrationComponent(PromptComponent):
     def __init__(self, demonstrations):
         super().__init__()
         self.demonstrations = demonstrations
-
 
     def get_prompt(self, agent):
         prompt = f"Here are demonstrations you can refer to:\n{self.demonstrations}"
@@ -113,6 +117,7 @@ class CustomizeComponent(PromptComponent):
     the component will get the keyword attribute from the environment, and then add it to the template.
     Return : "i am Lilong"
     """
+
     def __init__(self, template, keywords) -> None:
         super().__init__()
         self.template = template
@@ -121,6 +126,7 @@ class CustomizeComponent(PromptComponent):
     def get_prompt(self, agent):
         template_keyword = {}
         for keyword in self.keywords:
-            current_keyword = agent.environment.shared_memory[keyword] if keyword in agent.environment.shared_memory else ""
+            current_keyword = agent.environment.shared_memory[
+                keyword] if keyword in agent.environment.shared_memory else ""
             template_keyword[keyword] = current_keyword
         return self.template.format(**template_keyword)
