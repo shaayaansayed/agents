@@ -1,70 +1,52 @@
-import json
-import os
+import logging
+from typing import Dict, List
 
 from agents.action import Action
-from agents.Component import LastComponent, OutputComponent, PromptComponent
 from agents.llm import init_llm
+from config_manager import ConfigManager
 
-LAST_PROMPT = "{last_prompt}. Please continue the conversation on behalf of {name} based on the given information. Make your response appear as natural and coherent as possible."
-SUMMARY_PROMPT = """{summary_prompt}
-Here is the past summary:{short_term_memory}
+logger = logging.getLogger("chat_logger")
 
-Here is the new chat_history:
-{new_conversations}
-
-Please summarize the information above."""
+ACT_SYSTEM_PROMPT = "{system_prompt}\n\nCurrent conversation:\n{env_summary}\n{chat_messages}"
+LAST_PROMPT = "\n\nBased on the given information, continue the conversation on behalf of {name}. Have your response be as natural and coherent as possible."
 
 
 class Agent:
 
-    def __init__(self, name: str, agent_state_roles: dict, **kwargs) -> None:
-        self.state_roles = agent_state_roles
+    def __init__(self, name: str, state_roles: Dict[str, str], llms: List,
+                 is_user: bool, begins: List) -> None:
         self.name = name
-        self.style = kwargs.get("style")
-        self.llms = kwargs.get("llms", {})
-        self.is_user = kwargs.get("is_user", False)
-        self.begins = kwargs.get("begins", False)
-        self.long_term_memory = []
-        self.short_term_memory = ""
+        self.state_roles = state_roles
+        self.llms = llms
+        self.is_user = is_user
+        self.begins = begins
         self.environment = None
 
     @classmethod
-    def from_config(cls, config_path: str):
-        with open(config_path, 'r') as file:
-            config = json.load(file)
-
-        roles_to_names, agents = {}, {}
-
-        for agent_name, agent_info in config["agents"].items():
+    def from_config(cls, config: ConfigManager):
+        agents = {}
+        for agent_name, agent_info in config.get('agents').items():
             agent_llms, agent_begins = {}, {}
 
-            for state_name, agent_role in agent_info["roles"].items():
-                agent_begins[state_name] = {
-                    "is_begin":
-                        config["states"].get(state_name, {}).get("begin_role")
-                        == agent_role,
-                    "begin_query":
-                        config["states"].get(state_name,
-                                             {}).get("begin_query", " ")
-                }
-
-                roles_to_names.setdefault(state_name,
-                                          {})[agent_role] = agent_name
+            agent_state_roles = config.get_agent_state_roles(agent_name)
+            for state_name, agent_role in agent_state_roles.items():
+                begin_role, begin_query = config.get_state_begin_role_and_query(
+                    state_name)
+                if agent_role == begin_role:
+                    agent_begins[state_name] = {
+                        "is_begin": True,
+                        "begin_query": begin_query
+                    }
+                # TODO: Initialize LLMs based on functions and tools...
                 agent_llms[state_name] = init_llm()
 
             agents[agent_name] = cls(agent_name,
-                                     agent_info.get("roles"),
+                                     state_roles=agent_state_roles,
                                      llms=agent_llms,
-                                     is_user=agent_info.get("is_user", False),
-                                     style=agent_info.get("style", ""),
+                                     is_user=config.is_agent_user(agent_name),
                                      begins=agent_begins)
-        names_to_roles = {
-            state_name: {
-                name: role for role, name in roles_to_names[state_name].items()
-            } for state_name in roles_to_names
-        }
 
-        return agents, roles_to_names, names_to_roles
+        return agents
 
     def step(self, state, input=""):
         agent_begin = self.begins[state.name].get("is_begin", False)
@@ -72,19 +54,15 @@ class Agent:
         if self.is_user:
             response = f"{self.name}:{input}"
         else:
-            # Update agent's long term memory with an observation from the environment.
-            if len(self.environment.shared_memory["long_term_memory"]) > 0:
-                self.long_term_memory.append(self.environment.observe(self))
-
             if agent_begin:
                 response = ''.join(self.begins[state.name]["begin_query"])
             else:
                 response = self.act(state)
 
-        if agent_begin:
-            self.begins[state.name]["is_begin"] = False
         if state.is_begin:
             state.is_begin = False
+        if agent_begin:
+            self.begins[state.name] = False
         state.chat_nums += 1
 
         return Action(response=response,
@@ -98,55 +76,26 @@ class Agent:
         llm = self.llms[state.name]
         last_prompt, system_prompt = self.compile(state)
 
-        return llm.get_response(self.long_term_memory,
+        env_summary, chat_messages = self.environment.get_memory()
+        system_prompt = ACT_SYSTEM_PROMPT.format(system_prompt=system_prompt,
+                                                 chat_messages=chat_messages,
+                                                 env_summary=env_summary)
+        logger.debug(f"Agent {self.name} is acting in state {state.name}.\n")
+        return llm.get_response(None,
                                 system_prompt,
                                 last_prompt,
-                                log_system_fingerprint=True)
-
-    def update_memory(self, memory, state):
-
-        # Long term memory of the agent is maintained as a list, storing outputs. Within this list, the agent's output is labeled as "assistant".
-        self.long_term_memory.append({
-            "role": "assistant",
-            "content": memory.content
-        })
-
-        max_chat_history = int(os.environ.get("MAX_CHAT_HISTORY"))
-
-        # When the environment's shared long term memory surpasses its maximum limit, it is summarized and then stored in a 'short_term_memory' container.
-        long_term_memory = self.environment.shared_memory["long_term_memory"][
-            self.environment.curr_chat_history_idx:]
-        last_conversation_idx = self.environment._get_agent_last_conversation_idx(
-            self, long_term_memory)
-        if len(long_term_memory) - last_conversation_idx >= max_chat_history:
-            current_role = self.state_roles[state.name]
-            current_component = state.components[current_role]
-
-            new_conversations = self.environment._get_agent_new_memory(
-                self, long_term_memory)
-
-            summary_prompt = f"Your name is {self.name}, your role is{current_component['style'].role}, your task is {current_component['task'].task}.\n"
-
-            summary_prompt_formatted = SUMMARY_PROMPT.format(
-                summary_prompt=summary_prompt,
-                new_conversations=new_conversations,
-                short_term_memory=self.short_term_memory)
-            memory_summary = self.llms[state.name].get_response(
-                summary_prompt_formatted)
-            self.short_term_memory = memory_summary
+                                log_messages=True)
 
     def compile(self, state):
         components = state.components[self.state_roles[state.name]]
 
-        system_prompt_parts = [state.environment_prompt]
+        system_prompt_parts = [state.env_desc]
         last_prompt_parts = []
 
-        for component in components.values():
-            prompt = component.get_prompt(self)
-            if isinstance(component, (OutputComponent, LastComponent)):
-                last_prompt_parts.append(prompt)
-            elif isinstance(component, PromptComponent):
-                system_prompt_parts.append(prompt)
+        for component_name, component in components.items():
+            if isinstance(component, str):
+                if component_name == "role_desc":
+                    system_prompt_parts.append(component)
 
         system_prompt = "\n".join(system_prompt_parts)
         last_prompt = "\n".join(last_prompt_parts)

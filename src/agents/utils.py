@@ -3,14 +3,22 @@ import os
 import random
 import string
 
+import faiss
 import torch
+from langchain.docstore import InMemoryDocstore
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.memory import VectorStoreRetrieverMemory
+from langchain.schema import AIMessage, HumanMessage
+from langchain.vectorstores import FAISS
 from openai import OpenAI
 from text2vec import semantic_search
+
+VECTOR_STORE_EMBEDDING_SIZE = 1536
 
 
 def setup_logging():
     logger = logging.getLogger('chat_logger')
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
 
     console_handler = logging.StreamHandler()
 
@@ -19,10 +27,10 @@ def setup_logging():
 
     file_handler = logging.FileHandler('chat.log')
 
-    console_handler.setLevel(logging.INFO)
-    file_handler.setLevel(logging.INFO)
+    console_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter('%(message)s')
+    formatter = logging.Formatter('%(levelname)s - %(message)s')
     console_handler.setFormatter(formatter)
     file_handler.setFormatter(formatter)
 
@@ -30,6 +38,43 @@ def setup_logging():
     logger.addHandler(file_handler)
 
     return logger
+
+
+def init_memory_vector_store(top_k):
+    index = faiss.IndexFlatL2(VECTOR_STORE_EMBEDDING_SIZE)
+    embedding_fn = OpenAIEmbeddings().embed_query
+    vectorstore = FAISS(embedding_fn, index, InMemoryDocstore({}), {})
+    retriever = vectorstore.as_retriever(search_kwargs=dict(k=top_k))
+    memory = VectorStoreRetrieverMemory(retriever=retriever)
+    return vectorstore
+
+
+def append_memory_buffer(memory, user_message=None, ai_message=None):
+    if user_message and not ai_message:
+        memory.chat_memory.add_user_message(user_message)
+    elif ai_message and not user_message:
+        memory.chat_memory.add_ai_message(ai_message)
+    else:
+        raise ValueError(
+            "Exactly one of user_message or ai_message must be provided, but not both."
+        )
+
+    memory.prune()
+
+
+def extract_formatted_chat_messages(memory):
+    formatted_messages = []
+    for message in memory.buffer:
+        if isinstance(message, AIMessage):
+            formatted_messages.append(f"{memory.ai_prefix}: {message.content}")
+        elif isinstance(message, HumanMessage):
+            formatted_messages.append(
+                f"{memory.human_prefix}: {message.content}")
+        else:
+            raise TypeError(
+                "Received an unknown object in the chat message memory buffer.")
+
+    return '\n'.join(formatted_messages)
 
 
 def get_embedding(sentence):

@@ -1,12 +1,17 @@
-import json
-import os
+from typing import Any, Dict
 
 import torch
+from agents.agent import Agent
 from agents.llm import init_llm
 from agents.memory import Memory
-from agents.utils import get_embedding, get_relevant_history
-from langchain.llms import OpenAI
-from langchain.memory.prompt import SUMMARY_PROMPT
+from agents.utils import (
+    append_memory_buffer,
+    extract_formatted_chat_messages,
+    get_embedding,
+)
+from config_manager import ConfigManager
+from langchain.chat_models import ChatOpenAI
+from langchain.memory import ConversationSummaryBufferMemory
 
 SUMMARY_INFO_TEMPLATE = "Here is the information you need to know:\n\nHere is the summary of the previous dialogue history:\n{summary}\nHere is the latest conversation record:\n{chat_history},\nHere is the relevant chat history you may need:{relevant_history}"
 
@@ -17,106 +22,62 @@ AGENT_MEMORY = "Here's what you need to know (remember, this is just information
 
 class Environment:
     """
-    The place where the agent activities, responsible for storing some shared memories
+    Represents the environment where agent activities occur, responsible for
+    storing shared memories.
     """
 
-    def __init__(self, config) -> None:
-        self.shared_memory = {"long_term_memory": [], "short_term_memory": None}
-        self.agents = None
+    def __init__(self, agents: Dict[str, Agent], llms: Dict[str, Any],
+                 ai_agent_name: str, memory_max_token_limit: int,
+                 api_key: str) -> None:
+        self.shared_memory = {
+            "long_term_memory": [],
+            "chat_embeddings": [],
+            "short_term_memory": None
+        }
+        self.agents = agents
         self.curr_chat_history_idx = 0
-        self.llms = {}
-        self.roles_to_names = None
-        self.names_to_roles = None
+        self.llms = llms
+        self.memory = ConversationSummaryBufferMemory(
+            llm=ChatOpenAI(api_key=api_key),
+            max_token_limit=memory_max_token_limit,
+            input_key="content",
+            output_key="content",
+            ai_prefix=ai_agent_name,
+            human_prefix="User")
 
-        for state_name, state_dict in config["states"].items():
-            if state_name == "end_state":
-                continue
-
-            self.llms[state_name] = init_llm()
+        for agent in agents.values():
+            agent.environment = self
 
     @classmethod
-    def from_config(cls, config_path):
-        with open(config_path) as f:
-            config = json.load(f)
-        return cls(config)
+    def from_config(cls, config: ConfigManager,
+                    agents: Dict[str, Agent]) -> 'Environment':
+        """
+        Create an Environment instance from a configuration object and a list of agents.
+        """
+        llms = {}
+        for state_name in config.get("states", {}).keys():
+            if state_name != config.get("end_state"):
+                llms[state_name] = init_llm()
 
-    def summarize(self, current_state):
-        max_chat_history = int(os.environ["MAX_CHAT_HISTORY"])
+        ai_agent_name = next(
+            (agent_name for agent_name in config.get("agents", {})
+             if not config.is_agent_user(agent_name)), None)
 
-        long_term_memory = self.shared_memory["long_term_memory"]
-        current_summary = self.shared_memory["short_term_memory"]
+        return cls(agents,
+                   llms,
+                   ai_agent_name,
+                   memory_max_token_limit=config.get_mem_token_limit(),
+                   api_key=config.get_openai_api_key())
 
-        chat_history_slice = slice(-max_chat_history, None)
-        new_lines = Memory.get_chat_history(
-            long_term_memory[chat_history_slice])
+    def get_memory(self):
+        chat_messages = extract_formatted_chat_messages(self.memory)
+        return self.memory.moving_summary_buffer, chat_messages
 
-        system_prompt = SUMMARY_PROMPT.format(summary=current_summary,
-                                              new_lines=new_lines)
-        response = self.llms[current_state.name].get_response(None,
-                                                              system_prompt,
-                                                              stream=False)
-        return response
+    def update_memory(self, memory: Memory, curr_state: str):
+        agent_name = memory.send_name
+        if agent_name == "User":
+            append_memory_buffer(self.memory, user_message=memory.content)
+        else:
+            append_memory_buffer(self.memory, ai_message=memory.content)
 
-    def update_memory(self, memory, curr_state):
-        max_chat_history = int(os.environ.get("MAX_CHAT_HISTORY"))
         self.shared_memory["long_term_memory"].append(memory)
-
-        embedding = get_embedding(memory.content)
-        chat_embeddings = self.shared_memory.get("chat_embeddings",
-                                                 torch.tensor([]))
-        self.shared_memory["chat_embeddings"] = torch.cat(
-            [chat_embeddings, embedding], dim=0)
-
-        if len(self.shared_memory["long_term_memory"]) % max_chat_history == 0:
-            self.shared_memory["short_term_memory"] = self.summarize(curr_state)
-
-        self.agents[memory.send_name].update_memory(memory, curr_state)
-
-    def _get_agent_last_conversation_idx(self, agent, long_term_memory):
-        return next(
-            (i for i, history in reversed(list(enumerate(long_term_memory)))
-             if history.send_name == agent.name), -1)
-
-    def _get_agent_new_memory(self, agent, long_term_memory):
-        last_conversation_idx = self._get_agent_last_conversation_idx(
-            agent, long_term_memory)
-        new_conversation = long_term_memory[
-            last_conversation_idx +
-            1:] if last_conversation_idx != -1 else long_term_memory
-
-        max_chat_history = int(os.environ.get("MAX_CHAT_HISTORY"))
-        if len(new_conversation) > 2 * max_chat_history:
-            new_conversation = new_conversation[-2 * max_chat_history + 1:]
-
-        return Memory.get_chat_history(new_conversation)
-
-    def observe(self, agent):
-        max_chat_history = int(os.environ.get("MAX_CHAT_HISTORY"))
-
-        long_term_memory = self.shared_memory["long_term_memory"][
-            self.curr_chat_history_idx:]
-        long_term_memory = long_term_memory[-max_chat_history + 1:] if len(
-            long_term_memory) > max_chat_history else long_term_memory
-
-        chat_embeddings = self.shared_memory["chat_embeddings"][
-            self.curr_chat_history_idx:]
-        chat_embeddings = chat_embeddings[-max_chat_history + 1:] if len(
-            chat_embeddings) > max_chat_history else chat_embeddings
-
-        relevant_memory = ""
-        if len(long_term_memory) > 1:
-            query = long_term_memory[-1].content
-            relevant_memory = get_relevant_history(query, long_term_memory[:-2],
-                                                   chat_embeddings[:-2])
-            relevant_memory = Memory.get_chat_history(relevant_memory)
-
-        agent.relevant_memory = relevant_memory
-        new_conversations = self._get_agent_new_memory(agent, long_term_memory)
-
-        current_memory = AGENT_MEMORY.format(
-            relevant_memory=relevant_memory,
-            agent_short_term_memory=agent.short_term_memory,
-            new_conversations=new_conversations,
-            agent_relevant_memory=agent.relevant_memory)
-
-        return {"role": "user", "content": current_memory}

@@ -50,12 +50,8 @@ class ExtractComponent(ToolComponent):
         self.last_prompt = last_prompt if last_prompt else self.default_prompt
 
     def func(self, agent):
-        response = agent.LLM.get_response(
-            agent.long_term_memory,
-            self.system_prompt,
-            self.last_prompt,
-            stream=False,
-        )
+        response = agent.LLM.get_response(agent.long_term_memory,
+                                          self.system_prompt, self.last_prompt)
         for extract_word in self.extract_words:
             key = extract(response, extract_word)
             key = key if key else response

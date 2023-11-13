@@ -8,32 +8,28 @@ from agents.prompts import *
 from agents.state import State
 from agents.utils import extract, get_relevant_history
 
-ENVIRONMENT_TEMPLATE = "Here are the description of current scenario:{environment_prompt};\n"
-TRANSIT_SYSTEM_PROMPT = "{environment_prompt};\n{judge_system_prompt}\n"
+ENVIRONMENT_TEMPLATE = "Here are the description of current scenario:{env_desc};\n"
+TRANSIT_SYSTEM_PROMPT = "{env_desc};\n{judge_system_prompt}\n"
 TRANSIT_MESSAGE_TEMPLATE = "{environment_summary};\n Here is the The chat history:\n {chat_history_messages};\nHere is the last query you especially need to pay attention:\n{last_message};\n Here is the relevant conversation:\n{relevant_history}\n\n"
 
 
 class SOP:
 
-    def __init__(self, **kwargs):
-        self.controller_info = {}
+    def __init__(self, config):
+        self.config = config
         self.llm = init_llm()
 
-        self.init_states(kwargs.get("states"))
-        self.init_relation(kwargs.get("relations"))
+        self.init_states(config.get("states"))
+        self.init_relation(config.get("relations"))
 
         self.controller_info = {
             state_name: states_dict["controller"]
-            for state_name, states_dict in kwargs.get("states", {}).items()
+            for state_name, states_dict in config.get("states", {}).items()
             if state_name != "end_state" and "controller" in states_dict
         }
 
-        self.user_names = kwargs.get("user_names", [])
-        self.root = self.states[kwargs.get("root")]
-        self.curr_state = self.root
-        self.finish_state_name = kwargs.get("finish_state_name", "end_state")
-        self.roles_to_names = None
-        self.names_to_roles = None
+        self.curr_state = self.states[config.get_root_state()]
+        self.finish_state_name = config.get("finish_state_name", "end_state")
         self.finished = False
 
     def init_states(self, states_dict):
@@ -48,17 +44,6 @@ class SOP:
                 self.states[state_name].next_states[idx] = self.states.get(
                     next_state_name)
 
-    @classmethod
-    def from_config(cls, config_path):
-        with open(config_path) as f:
-            config = json.load(f)
-        os.environ.clear()
-        for key, value in config["config"].items():
-            if value != "":
-                os.environ[key] = value
-        sop = SOP(**config)
-        return sop
-
     def transit(self, chat_history, **kwargs):
 
         if len(self.curr_state.next_states) == 1:
@@ -70,10 +55,10 @@ class SOP:
             if self.curr_state.chat_nums >= max_chat_nums:
                 return self.curr_state.next_states.get("1", self.curr_state)
 
-            environment_prompt = self.curr_state.environment_prompt or ""
+            env_desc = self.curr_state.env_desc or ""
             transit_system_prompt = TRANSIT_SYSTEM_PROMPT.format(
                 environment_prompt=ENVIRONMENT_TEMPLATE.format(
-                    environment_prompt=environment_prompt),
+                    environment_prompt=env_desc),
                 judge_system_prompt=controller_info.get("judge_system_prompt",
                                                         ""))
 
@@ -95,9 +80,7 @@ class SOP:
             extract_words = kwargs.get("judge_extract_words", "end")
             response = self.llm.get_response(chat_messages,
                                              transit_system_prompt,
-                                             transit_last_prompt,
-                                             stream=False,
-                                             **kwargs)
+                                             transit_last_prompt)
 
             next_state_key = response if response.isdigit() else extract(
                 response, extract_words)
@@ -118,7 +101,7 @@ class SOP:
         if len(self.curr_state.roles) == 1:
             next_role = self.curr_state.roles[0]
         else:
-            relevant_history = kwargs["relevant_history"]
+            relevant_history = kwargs.get("relevant_history")
             controller_type = (
                 self.controller_info[self.curr_state.name]["controller_type"]
                 if "controller_type"
@@ -160,9 +143,7 @@ class SOP:
 
                 response = self.llm.get_response(chat_messages,
                                                  call_system_prompt,
-                                                 call_last_prompt,
-                                                 stream=False,
-                                                 **kwargs)
+                                                 call_last_prompt)
 
                 # get next role
                 next_role = extract(response, extract_words)
@@ -191,8 +172,10 @@ class SOP:
         if self.curr_state.is_begin:
             environment.curr_chat_history_idx = len(
                 environment.shared_memory["long_term_memory"])
-            agent_name = self.roles_to_names[self.curr_state.name][
-                self.curr_state.begin_role]
+            begin_role, _ = self.config.get_state_begin_role_and_query(
+                self.curr_state.name)
+            agent_name = self.config.get_agent_for_state_role(
+                self.curr_state.name, begin_role)
             agent = agents[agent_name]
             return self.curr_state, agent
 

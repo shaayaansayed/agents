@@ -1,132 +1,124 @@
-from abc import abstractmethod
+# class PromptComponent:
 
+#     def __init__(self, behavior=None):
+#         self.behavior = behavior
 
-class PromptComponent:
+#     def get_prompt(self, agent):
+#         if self.behavior:
+#             return self.behavior(agent)
+#         return ""
 
-    def __init__(self):
-        pass
+# def role_description_behavior(input):
+#     task = getattr(agent, 'task', 'Undefined Task')
+#     return f"The task you need to execute is: {task}.\n"
 
-    @abstractmethod
-    def get_prompt(self, agent):
-        pass
+# class TaskComponent(PromptComponent):
 
+#     def __init__(self, task):
+#         super().__init__()
+#         self.task = task
 
-class TaskComponent(PromptComponent):
+#     def get_prompt(self, agent):
+#         return f"""The task you need to execute is: {self.task}.\n"""
 
-    def __init__(self, task):
-        super().__init__()
-        self.task = task
+# class OutputComponent(PromptComponent):
 
-    def get_prompt(self, agent):
-        return f"""The task you need to execute is: {self.task}.\n"""
+#     def __init__(self, output):
+#         super().__init__()
+#         self.output = output
 
+#     def get_prompt(self, agent):
+#         return f"""Please contact the above to extract <{self.output}> and </{self.output}>, \
+#             do not perform additional output, please output in strict accordance with the above format!\n"""
 
-class OutputComponent(PromptComponent):
+# class SystemComponent(PromptComponent):
 
-    def __init__(self, output):
-        super().__init__()
-        self.output = output
+#     def __init__(self, system_prompt):
+#         super().__init__()
+#         self.system_prompt = system_prompt
 
-    def get_prompt(self, agent):
-        return f"""Please contact the above to extract <{self.output}> and </{self.output}>, \
-            do not perform additional output, please output in strict accordance with the above format!\n"""
+#     def get_prompt(self, agent):
+#         return self.system_prompt
 
+# class LastComponent(PromptComponent):
 
-class SystemComponent(PromptComponent):
+#     def __init__(self, last_prompt):
+#         super().__init__()
+#         self.last_prompt = last_prompt
 
-    def __init__(self, system_prompt):
-        super().__init__()
-        self.system_prompt = system_prompt
+#     def get_prompt(self, agent):
+#         return self.last_prompt
 
-    def get_prompt(self, agent):
-        return self.system_prompt
+# class StyleComponent(PromptComponent):
 
+#     def __init__(self, role):
+#         super().__init__()
+#         self.role = role
 
-class LastComponent(PromptComponent):
+#     def get_prompt(self, agent):
+#         name = agent.name
+#         style = agent.style
+#         return f"""Now your role is: {self.role}, your name is: {name}. You need to follow the output style: {style}\n"""
 
-    def __init__(self, last_prompt):
-        super().__init__()
-        self.last_prompt = last_prompt
+# class RuleComponent(PromptComponent):
 
-    def get_prompt(self, agent):
-        return self.last_prompt
+#     def __init__(self, rule):
+#         super().__init__()
+#         self.rule = rule
 
+#     def get_prompt(self, agent):
+#         return f"""The rule you need to follow is: {self.rule}\n"""
 
-class StyleComponent(PromptComponent):
+# class DemonstrationComponent(PromptComponent):
+#     """
+#     input a list,the example of answer.
+#     """
 
-    def __init__(self, role):
-        super().__init__()
-        self.role = role
+#     def __init__(self, demonstrations):
+#         super().__init__()
+#         self.demonstrations = demonstrations
 
-    def get_prompt(self, agent):
-        name = agent.name
-        style = agent.style
-        return f"""Now your role is:\n{self.role}, your name is:\n{name}. \
-            You need to follow the output style:\n{style}.\n"""
+#     def get_prompt(self, agent):
+#         prompt = f"Here are demonstrations you can refer to:\n{self.demonstrations}"
+#         return prompt
 
+# class CoTComponent(PromptComponent):
+#     """
+#     input a list,the example of answer.
+#     """
 
-class RuleComponent(PromptComponent):
+#     def __init__(self, demonstrations):
+#         super().__init__()
+#         self.demonstrations = demonstrations
 
-    def __init__(self, rule):
-        super().__init__()
-        self.rule = rule
+#     def add_demonstration(self, demonstration):
+#         self.demonstrations.append(demonstration)
 
-    def get_prompt(self, agent):
-        return f"""The rule you need to follow is:\n\n{self.rule}.\n"""
+#     def get_prompt(self, agent):
+#         prompt = "You need to think in detail before outputting, the thinking case is as follows:\n"
+#         for demonstration in self.demonstrations:
+#             prompt += "\n" + demonstration
+#         return prompt
 
+# class CustomizeComponent(PromptComponent):
+#     """
+#     Custom template
+#     template(str) : example: "i am {}"
+#     keywords(list) : example : ["name"]
+#     example : agent.environment.shared_memory["name"] = "Lilong"
+#     the component will get the keyword attribute from the environment, and then add it to the template.
+#     Return : "i am Lilong"
+#     """
 
-class DemonstrationComponent(PromptComponent):
-    """
-    input a list,the example of answer.
-    """
+#     def __init__(self, template, keywords) -> None:
+#         super().__init__()
+#         self.template = template
+#         self.keywords = keywords
 
-    def __init__(self, demonstrations):
-        super().__init__()
-        self.demonstrations = demonstrations
-
-    def get_prompt(self, agent):
-        prompt = f"Here are demonstrations you can refer to:\n{self.demonstrations}"
-        return prompt
-
-
-class CoTComponent(PromptComponent):
-    """
-    input a list,the example of answer.
-    """
-
-    def __init__(self, demonstrations):
-        super().__init__()
-        self.demonstrations = demonstrations
-
-    def add_demonstration(self, demonstration):
-        self.demonstrations.append(demonstration)
-
-    def get_prompt(self, agent):
-        prompt = "You need to think in detail before outputting, the thinking case is as follows:\n"
-        for demonstration in self.demonstrations:
-            prompt += "\n" + demonstration
-        return prompt
-
-
-class CustomizeComponent(PromptComponent):
-    """
-    Custom template
-    template(str) : example: "i am {}"
-    keywords(list) : example : ["name"]  
-    example : agent.environment.shared_memory["name"] = "Lilong"
-    the component will get the keyword attribute from the environment, and then add it to the template.
-    Return : "i am Lilong"
-    """
-
-    def __init__(self, template, keywords) -> None:
-        super().__init__()
-        self.template = template
-        self.keywords = keywords
-
-    def get_prompt(self, agent):
-        template_keyword = {}
-        for keyword in self.keywords:
-            current_keyword = agent.environment.shared_memory[
-                keyword] if keyword in agent.environment.shared_memory else ""
-            template_keyword[keyword] = current_keyword
-        return self.template.format(**template_keyword)
+#     def get_prompt(self, agent):
+#         template_keyword = {}
+#         for keyword in self.keywords:
+#             current_keyword = agent.environment.shared_memory[
+#                 keyword] if keyword in agent.environment.shared_memory else ""
+#             template_keyword[keyword] = current_keyword
+#         return self.template.format(**template_keyword)

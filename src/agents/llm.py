@@ -5,6 +5,8 @@ import time
 from agents.memory import Memory
 from openai import OpenAI
 
+logger = logging.getLogger("chat_logger")
+
 
 class OpenAILLM:
 
@@ -17,14 +19,12 @@ class OpenAILLM:
         self.max_chat_history = int(
             os.getenv("MAX_CHAT_HISTORY", max_chat_history))
         self.client = OpenAI(api_key=os.getenv("API_KEY", api_key))
-        self.logger = logging.getLogger('chat_logger')
 
     def get_response(self,
                      chat_history,
                      system_prompt,
                      last_prompt=None,
-                     log_system_fingerprint=False,
-                     **kwargs):
+                     log_messages=False):
         messages = [{
             "role": "system",
             "content": system_prompt
@@ -39,6 +39,11 @@ class OpenAILLM:
 
         if last_prompt:
             messages[-1]["content"] += last_prompt
+
+        if log_messages:
+            log_message = '\n'.join(
+                f"{item['role']}: {item['content']}" for item in messages)
+            logger.debug(f"Response generated with inputs:\n\n{log_message}\n")
 
         while True:
             try:
@@ -56,10 +61,6 @@ class OpenAILLM:
                         f"Please wait {self.WAIT_TIME} seconds and resend later ..."
                     )
                     time.sleep(self.WAIT_TIME)
-
-        if log_system_fingerprint:
-            self.logger.info(
-                f"system fingerprint: {response.system_fingerprint}")
 
         return response.choices[0].message.content
 
