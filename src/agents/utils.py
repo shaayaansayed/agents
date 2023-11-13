@@ -116,7 +116,7 @@ def extract(text, type):
 
 def get_relevant_history(query, history, embeddings):
     try:
-        top_k = int(os.getenv("TOP_K", 0))
+        top_k = min(int(os.getenv("TOP_K", 0)), embeddings.shape[0])
     except ValueError:
         raise ValueError("Environment variable TOP_K must be an integer.")
 
