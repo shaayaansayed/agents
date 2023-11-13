@@ -21,6 +21,7 @@ class OpenAILLM:
                      chat_history,
                      system_prompt,
                      last_prompt=None,
+                     chat_model=True,
                      **kwargs):
         messages = [{
             "role": "system",

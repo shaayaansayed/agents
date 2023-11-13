@@ -1,6 +1,6 @@
 {
   "config": {
-    "API_KEY": "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",
+    "API_KEY": "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",
     "MAX_CHAT_HISTORY": "10",
     "TOP_K": "3"
   },
@@ -40,7 +40,7 @@
         },
         "User": {
             "rule": {
-                "rule": "You lost your pet at the park. Speak with the detective to help you find it."
+                "rule": "You lost your pet at the park. Speak with the detective to help you find it. Continue to ask him new and creative questions about the potential wherebouts of your dog. You are inquisitive and keen and want to gather as much information as possible."
             }
         }
       }

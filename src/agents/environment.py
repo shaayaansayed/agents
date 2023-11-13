@@ -5,6 +5,8 @@ import torch
 from agents.llm import init_llm
 from agents.memory import Memory
 from agents.utils import get_embedding, get_relevant_history
+from langchain.llms import OpenAI
+from langchain.memory.prompt import SUMMARY_PROMPT
 
 SUMMARY_INFO_TEMPLATE = "Here is the information you need to know:\n\nHere is the summary of the previous dialogue history:\n{summary}\nHere is the latest conversation record:\n{chat_history},\nHere is the relevant chat history you may need:{relevant_history}"
 
@@ -38,35 +40,18 @@ class Environment:
             config = json.load(f)
         return cls(config)
 
-    def summary(self, current_state):
-        """
-        Summarize the situation in the current environment every once in a while
-        """
+    def summarize(self, current_state):
         max_chat_history = int(os.environ["MAX_CHAT_HISTORY"])
 
         long_term_memory = self.shared_memory["long_term_memory"]
-        chat_embeddings = self.shared_memory["chat_embeddings"]
+        current_summary = self.shared_memory["short_term_memory"]
 
-        relevant_history = ""
-        if len(self.shared_memory["long_term_memory"]) > 1:
-            query = self.shared_memory["long_term_memory"][-1].content
-            relevant_history = get_relevant_history(query,
-                                                    long_term_memory[:-1],
-                                                    chat_embeddings[:-1])
-            relevant_history = Memory.get_chat_history(relevant_history)
-
-        chat_history_slice = slice(-max_chat_history + 1, None)
-        chat_history = Memory.get_chat_history(
+        chat_history_slice = slice(-max_chat_history, None)
+        new_lines = Memory.get_chat_history(
             long_term_memory[chat_history_slice])
-        summary = self.shared_memory["short_term_memory"]
 
-        current_memory = SUMMARY_INFO_TEMPLATE.format(
-            chat_history=chat_history,
-            summary=summary,
-            relevant_history=relevant_history)
-
-        system_prompt = SUMMARY_SYSTEM_PROMPT.format(
-            current_memory=current_memory)
+        system_prompt = SUMMARY_PROMPT.format(summary=current_summary,
+                                              new_lines=new_lines)
         response = self.llms[current_state.name].get_response(None,
                                                               system_prompt,
                                                               stream=False)
@@ -83,7 +68,7 @@ class Environment:
             [chat_embeddings, embedding], dim=0)
 
         if len(self.shared_memory["long_term_memory"]) % max_chat_history == 0:
-            self.shared_memory["short_term_memory"] = self.summary(curr_state)
+            self.shared_memory["short_term_memory"] = self.summarize(curr_state)
 
         self.agents[memory.send_name].update_memory(memory, curr_state)
 
@@ -123,8 +108,7 @@ class Environment:
             query = long_term_memory[-1].content
             relevant_memory = get_relevant_history(query, long_term_memory[:-2],
                                                    chat_embeddings[:-2])
-            relevant_memory = Memory.get_chat_history(relevant_memory,
-                                                      agent.name)
+            relevant_memory = Memory.get_chat_history(relevant_memory)
 
         agent.relevant_memory = relevant_memory
         new_conversations = self._get_agent_new_memory(agent, long_term_memory)

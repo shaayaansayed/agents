@@ -6,7 +6,13 @@ from agents.Component import LastComponent, OutputComponent, PromptComponent
 from agents.llm import init_llm
 
 LAST_PROMPT = "{last_prompt}. Please continue the conversation on behalf of {name} based on the given information. Make your response appear as natural and coherent as possible."
-SUMMARY_PROMPT = "{summary_prompt};\nHere is the past summary:{short_term_memory};\nHere is the new chat_history:\n{new_conversations};\nPlease summarize the information above."
+SUMMARY_PROMPT = """{summary_prompt}
+Here is the past summary:{short_term_memory}
+
+Here is the new chat_history:
+{new_conversations}
+
+Please summarize the information above."""
 
 
 class Agent:
@@ -96,8 +102,8 @@ class Agent:
                                 last_prompt)
 
     def update_memory(self, memory, state):
-        # The agents long term memory stores the agent's output as a list
-        # The agent's specific output is stored as "assistant"
+
+        # Long term memory of the agent is maintained as a list, storing outputs. Within this list, the agent's output is labeled as "assistant".
         self.long_term_memory.append({
             "role": "assistant",
             "content": memory.content
@@ -105,7 +111,7 @@ class Agent:
 
         max_chat_history = int(os.environ.get("MAX_CHAT_HISTORY"))
 
-        # If the environment's shared long term memory exceeds the max, summarize the memory and store it as short_term_memory.
+        # When the environment's shared long term memory surpasses its maximum limit, it is summarized and then stored in a 'short_term_memory' container.
         long_term_memory = self.environment.shared_memory["long_term_memory"][
             self.environment.curr_chat_history_idx:]
         last_conversation_idx = self.environment._get_agent_last_conversation_idx(
@@ -117,7 +123,7 @@ class Agent:
             new_conversations = self.environment._get_agent_new_memory(
                 self, long_term_memory)
 
-            summary_prompt = f"""Your name is {self.name}, your role is{current_component["style"].role}, your task is {current_component["task"].task}.\n"""
+            summary_prompt = f"Your name is {self.name}, your role is{current_component['style'].role}, your task is {current_component['task'].task}.\n"
 
             summary_prompt_formatted = SUMMARY_PROMPT.format(
                 summary_prompt=summary_prompt,

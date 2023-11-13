@@ -1,12 +1,8 @@
 from agents.Component import (
-    CategoryRequirementsComponent,
-    CodeComponent,
     CoTComponent,
     CustomizeComponent,
     DemonstrationComponent,
     ExtractComponent,
-    FunctionComponent,
-    KnowledgeBaseComponent,
     LastComponent,
     OutputComponent,
     RuleComponent,
@@ -14,8 +10,6 @@ from agents.Component import (
     StyleComponent,
     SystemComponent,
     TaskComponent,
-    WebCrawlComponent,
-    WebSearchComponent,
 )
 
 

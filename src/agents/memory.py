@@ -1,6 +1,4 @@
-from agents.prompts import *
-
-SINGLE_MESSAGE_TEMPLATE = "name: {name}\n role: {role}\nspeak content: {content}"
+SINGLE_MESSAGE_TEMPLATE = "{name}: {content}"
 
 
 class Memory:
@@ -14,14 +12,11 @@ class Memory:
         return {"role": role, "content": self.content}
 
     @classmethod
-    def get_chat_history(self, messages, agent_name=None):
+    def get_chat_history(self, messages):
         chat_history_parts = []
         for message in messages:
-            name, role, content = message.send_name, message.send_role, message.content
-            if agent_name and agent_name == name:
-                name = "you"
+            name, content = message.send_name, message.content
             single_message = SINGLE_MESSAGE_TEMPLATE.format(name=name,
-                                                            role=role,
                                                             content=content)
             chat_history_parts.append(single_message)
         return '\n'.join(chat_history_parts)
