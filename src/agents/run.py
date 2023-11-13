@@ -32,9 +32,9 @@ def run(agents, sop, environment):
 
 
 parser = argparse.ArgumentParser(description='A demo of chatbot')
-parser.add_argument('--agent', type=str, help='path to SOP json')
+parser.add_argument('--config', type=str, help='path to SOP json')
 args = parser.parse_args()
 
 setup_logging()
-agents, sop, environment = init(args.agent)
+agents, sop, environment = init(args.config)
 run(agents, sop, environment)
