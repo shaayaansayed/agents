@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 
@@ -16,11 +17,13 @@ class OpenAILLM:
         self.max_chat_history = int(
             os.getenv("MAX_CHAT_HISTORY", max_chat_history))
         self.client = OpenAI(api_key=os.getenv("API_KEY", api_key))
+        self.logger = logging.getLogger('chat_logger')
 
     def get_response(self,
                      chat_history,
                      system_prompt,
                      last_prompt=None,
+                     log_system_fingerprint=False,
                      **kwargs):
         messages = [{
             "role": "system",
@@ -53,6 +56,10 @@ class OpenAILLM:
                         f"Please wait {self.WAIT_TIME} seconds and resend later ..."
                     )
                     time.sleep(self.WAIT_TIME)
+
+        if log_system_fingerprint:
+            self.logger.info(
+                f"system fingerprint: {response.system_fingerprint}")
 
         return response.choices[0].message.content
 

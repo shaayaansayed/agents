@@ -3,6 +3,7 @@ import argparse
 from agents.agent import Agent
 from agents.environment import Environment
 from agents.sop import SOP
+from utils import setup_logging
 
 
 def init(config):
@@ -34,5 +35,6 @@ parser = argparse.ArgumentParser(description='A demo of chatbot')
 parser.add_argument('--agent', type=str, help='path to SOP json')
 args = parser.parse_args()
 
+setup_logging()
 agents, sop, environment = init(args.agent)
 run(agents, sop, environment)

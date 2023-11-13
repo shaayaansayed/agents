@@ -16,6 +16,7 @@
 """helper functions for an LLM autonoumous agent"""
 import datetime
 import json
+import logging
 import os
 import random
 import re
@@ -30,6 +31,30 @@ from langchain.text_splitter import CharacterTextSplitter
 from openai import OpenAI
 from text2vec import semantic_search
 from tqdm import tqdm
+
+
+def setup_logging():
+    logger = logging.getLogger('chat_logger')
+    logger.setLevel(logging.INFO)
+
+    console_handler = logging.StreamHandler()
+
+    if os.path.exists('chat.log'):
+        os.remove('chat.log')
+
+    file_handler = logging.FileHandler('chat.log')
+
+    console_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.INFO)
+
+    formatter = logging.Formatter('%(message)s')
+    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+
+    return logger
 
 
 def get_embedding(sentence):
@@ -68,8 +93,7 @@ def get_content_between_a_b(start_tag, end_tag, text):
     while start_index != -1:
         end_index = text.find(end_tag, start_index + len(start_tag))
         if end_index != -1:
-            extracted_text += text[start_index +
-                                   len(start_tag):end_index] + " "
+            extracted_text += text[start_index + len(start_tag):end_index] + " "
             start_index = text.find(start_tag, end_index + len(end_tag))
         else:
             break
@@ -232,8 +256,7 @@ def process_document(file_path):
     else:
         loader = UnstructuredFileLoader(file_path)
         docs = loader.load()
-        text_spiltter = CharacterTextSplitter(chunk_size=200,
-                                              chunk_overlap=100)
+        text_spiltter = CharacterTextSplitter(chunk_size=200, chunk_overlap=100)
         docs = text_spiltter.split_text(docs[0].page_content)
         os.makedirs("temp_database", exist_ok=True)
         save_path = os.path.join(
