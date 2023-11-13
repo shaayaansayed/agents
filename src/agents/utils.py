@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 import string
@@ -7,15 +8,36 @@ from openai import OpenAI
 from text2vec import semantic_search
 
 
+def setup_logging():
+    logger = logging.getLogger('chat_logger')
+    logger.setLevel(logging.INFO)
+
+    console_handler = logging.StreamHandler()
+
+    if os.path.exists('chat.log'):
+        os.remove('chat.log')
+
+    file_handler = logging.FileHandler('chat.log')
+
+    console_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.INFO)
+
+    formatter = logging.Formatter('%(message)s')
+    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+
+    return logger
+
+
 def get_embedding(sentence):
     client = OpenAI(api_key=os.environ.get("API_KEY"))
 
-    def get_embedding(text, model="text-embedding-ada-002"):
-        text = text.replace("\n", " ")
-        return client.embeddings.create(input=[text],
-                                        model=model).data[0].embedding
-
-    embedding = get_embedding(sentence)
+    text = sentence.replace("\n", " ")
+    embedding = client.embeddings.create(
+        input=[text], model="text-embedding-ada-002").data[0].embedding
     embedding = torch.tensor(embedding, dtype=torch.float32)
 
     if len(embedding.shape) == 1:
@@ -33,6 +55,7 @@ def get_content_between_a_b(start_tag, end_tag, text):
     while start_index != -1:
         end_index = text.find(end_tag, start_index + len(start_tag))
         if end_index != -1:
+            extracted_text += text[start_index + len(start_tag):end_index] + " "
             extracted_text += text[start_index + len(start_tag):end_index] + " "
             start_index = text.find(start_tag, end_index + len(end_tag))
         else:

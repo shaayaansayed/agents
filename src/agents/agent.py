@@ -98,8 +98,10 @@ class Agent:
         llm = self.llms[state.name]
         last_prompt, system_prompt = self.compile(state)
 
-        return llm.get_response(self.long_term_memory, system_prompt,
-                                last_prompt)
+        return llm.get_response(self.long_term_memory,
+                                system_prompt,
+                                last_prompt,
+                                log_system_fingerprint=True)
 
     def update_memory(self, memory, state):
 
