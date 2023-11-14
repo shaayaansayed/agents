@@ -2,10 +2,10 @@ import argparse
 import logging
 from typing import List
 
-from agents.agent import Agent
-from agents.environment import Environment
-from agents.state_controller import StateController
+from agent import Agent
 from config_manager import ConfigManager
+from environment import Environment
+from state_controller import StateController
 from utils import setup_logging
 
 logger = logging.getLogger("chat_logger")

@@ -1,9 +1,8 @@
 import json
 import logging
 
-from agents.llm import OpenAILLM
-from agents.state import State
-from agents.utils import extract
+from llm import OpenAILLM
+from state import State
 
 logger = logging.getLogger("chat_logger")
 
@@ -99,6 +98,13 @@ class StateController:
                 next_state.name, next_state.begin_role)
         else:
             next_role = self.curr_state.update_to_next_role()
+
+            # ensure conversation flips
+            # If there's a new state change, find the person who spoke last in the state before last and ensure they are a different agent
+            # if next_state.name != self.curr_state.name:
+            #     if agent.name == next_agent.name :
+            #         next_role = self.curr
+            # next_role = self.curr_state.update_to_next_role()
             next_agent = self.config.get_agent_for_state_role(
                 self.curr_state.name, next_role)
 

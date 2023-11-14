@@ -1,18 +1,5 @@
 INFO - Current state: main
 INFO - Current state: main
-INFO - Coach (Coach): Hello! It's great to hear from you. I'm here to support you on your health journey. Let's start by discussing any wellness goals you have in mind, especially if you're looking to manage your weight. Do you have a specific goal or challenge you'd like to focus on?
+INFO - Coach (Coach): Hello! I'm glad you reached out, and I want you to know that it's completely normal to experience changes in your eating habits. Let's work together to get you back on track with your wellness journey. To start with, could you share a bit more about your current eating habits and what your ideal weight loss goal would be?
 
 INFO - Current state: main
-INFO - Current state: get_goal_info
-INFO - Coach (Coach): Great to see you're motivated to start your weight loss journey! Let's start with some basic health details. Can you tell me about your current weight and height, and any significant health conditions you have?
-
-INFO - Current state: get_goal_info
-INFO - Current state: get_goal_info
-INFO - Coach (Coach): Understanding your current weight and height is essential for us to create a personalized weight-loss plan that works for you. This information helps us calculate your Body Mass Index (BMI), which gives us a starting point to set realistic and attainable weight-loss targets. Additionally, knowing if you have any health conditions is crucial as it allows us to tailor your plan in a way that is safe and beneficial for your overall wellbeing. Taking care of your health is our top priority, and having this information ensures that we can offer the best guidance possible. Would you be comfortable sharing your current weight and height with me, and if there are any health conditions you're currently managing?
-
-INFO - Current state: get_goal_info
-INFO - Current state: main
-INFO - Coach (Coach): Thank you for sharing that with me. With a height of 80 inches and a weight of 160 pounds, your BMI falls within a healthy range. However, I understand that you're looking to lose weight and that you're managing high blood pressure, which is an important factor to consider when creating your weight loss plan.
-
-A balanced diet and regular exercise can be beneficial for weight loss and may also help in managing high blood pressure. How about we set a manageable goal to start? For example, a weight loss of 4-6 pounds over the next month could be a realistic target. Does that sound good to you, and do you feel it's a goal you'd be motivated to work towards?
-

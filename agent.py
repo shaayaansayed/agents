@@ -1,9 +1,9 @@
 import logging
 from typing import Dict, List
 
-from agents.action import Action
-from agents.llm import OpenAILLM
+from action import Action
 from config_manager import ConfigManager
+from llm import OpenAILLM
 
 logger = logging.getLogger("chat_logger")
 
