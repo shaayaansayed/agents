@@ -8,7 +8,6 @@ import torch
 from langchain.docstore import InMemoryDocstore
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.memory import VectorStoreRetrieverMemory
-from langchain.schema import AIMessage, HumanMessage
 from langchain.vectorstores import FAISS
 from openai import OpenAI
 from text2vec import semantic_search
@@ -16,7 +15,7 @@ from text2vec import semantic_search
 VECTOR_STORE_EMBEDDING_SIZE = 1536
 
 
-def setup_logging():
+def setup_logging(debug=False):
     logger = logging.getLogger('chat_logger')
     logger.setLevel(logging.DEBUG)
 
@@ -27,8 +26,12 @@ def setup_logging():
 
     file_handler = logging.FileHandler('chat.log')
 
-    console_handler.setLevel(logging.DEBUG)
-    file_handler.setLevel(logging.DEBUG)
+    if debug:
+        console_handler.setLevel(logging.DEBUG)
+        file_handler.setLevel(logging.DEBUG)
+    else:
+        console_handler.setLevel(logging.INFO)
+        file_handler.setLevel(logging.INFO)
 
     formatter = logging.Formatter('%(levelname)s - %(message)s')
     console_handler.setFormatter(formatter)
@@ -36,8 +39,6 @@ def setup_logging():
 
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)
-
-    return logger
 
 
 def init_memory_vector_store(top_k):
@@ -65,14 +66,7 @@ def append_memory_buffer(memory, user_message=None, ai_message=None):
 def extract_formatted_chat_messages(memory):
     formatted_messages = []
     for message in memory.buffer:
-        if isinstance(message, AIMessage):
-            formatted_messages.append(f"{memory.ai_prefix}: {message.content}")
-        elif isinstance(message, HumanMessage):
-            formatted_messages.append(
-                f"{memory.human_prefix}: {message.content}")
-        else:
-            raise TypeError(
-                "Received an unknown object in the chat message memory buffer.")
+        formatted_messages.append(message.content)
 
     return '\n'.join(formatted_messages)
 
@@ -115,8 +109,11 @@ def extract(text, type):
 
 
 def get_relevant_history(query, history, embeddings):
+    if len(embeddings) == 0:
+        return []
+
     try:
-        top_k = min(int(os.getenv("TOP_K", 0)), embeddings.shape[0])
+        top_k = int(os.getenv("TOP_K", 0))
     except ValueError:
         raise ValueError("Environment variable TOP_K must be an integer.")
 

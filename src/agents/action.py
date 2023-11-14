@@ -1,8 +1,6 @@
 import logging
 from dataclasses import dataclass, field
 
-from agents.memory import Memory
-
 
 @dataclass
 class Action:
@@ -25,5 +23,3 @@ class Action:
         if not self.is_user:
             self.logger.info(
                 f"{self.name} ({self.role}): {formatted_response}\n")
-
-        return Memory(self.role, self.name, formatted_response)

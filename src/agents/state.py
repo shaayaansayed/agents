@@ -1,32 +1,30 @@
 class State:
 
-    def __init__(self, **kwargs):
-        self.next_states = {}
-        self.name = kwargs.get("name")
-        self.env_desc = kwargs.get("env_desc", None)
-
-        roles = kwargs.get("roles", {})
+    def __init__(self, name: str, state_desc: str, roles_info: dict[str, dict],
+                 begin_role: str, begin_query: str):
+        self.name = name
+        self.state_desc = state_desc
+        self.roles = list(roles_info.keys())
 
         self.is_begin = True
-        self.begin_role = kwargs.get("begin_role")
-        self.begin_query = kwargs.get("begin_query")
-        self.current_role = self.begin_role
-        self.index = list(roles.keys()).index(
-            self.begin_role) if self.begin_role in roles.keys() else 0
-        self.env_desc = kwargs.get("env_desc")
-        self.components = self.init_components(roles) if roles else {}
-        self.chat_nums = 0
+        self.begin_role = begin_role
+        self.begin_query = begin_query
 
-    def init_components(self, agent_states_dict: dict):
-        agent_states = {}
-        for role, role_components in agent_states_dict.items():
-            components = {}
-            for component, component_args in role_components.items():
-                if component == "role_desc":
-                    components[component] = component_args["role_desc"]
-                else:
-                    continue
+        self.curr_role = self.begin_role
+        self.index = self.roles.index(self.begin_role)
+        self.init_components(roles_info)
 
-            agent_states[role] = components
+    def update_to_next_role(self):
+        self.index += 1
+        self.index %= len(self.roles)
+        self.curr_role = self.roles[self.index]
+        return self.curr_role
 
-        return agent_states
+    def init_components(self, roles_info: dict) -> None:
+        self.components = {
+            role: {
+                key: value
+                for key, value in info.items()
+                if key in ['role_desc']
+            } for role, info in roles_info.items()
+        }

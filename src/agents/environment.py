@@ -1,23 +1,13 @@
 from typing import Any, Dict
 
-import torch
+from agents.action import Action
 from agents.agent import Agent
-from agents.llm import init_llm
-from agents.memory import Memory
-from agents.utils import (
-    append_memory_buffer,
-    extract_formatted_chat_messages,
-    get_embedding,
-)
+from agents.llm import OpenAILLM
+from agents.state import State
+from agents.utils import append_memory_buffer, extract_formatted_chat_messages
 from config_manager import ConfigManager
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationSummaryBufferMemory
-
-SUMMARY_INFO_TEMPLATE = "Here is the information you need to know:\n\nHere is the summary of the previous dialogue history:\n{summary}\nHere is the latest conversation record:\n{chat_history},\nHere is the relevant chat history you may need:{relevant_history}"
-
-SUMMARY_SYSTEM_PROMPT = "{current_memory};\nYour task is to summarize the historical dialogue records according to the current scene, and summarize the most important information.;\n"
-
-AGENT_MEMORY = "Here's what you need to know (remember, this is just information, do not repeat what's inside):\n\nHere is the relevant chat history you may need:{relevant_memory}\n\nHere is the previous summary of chat history:{agent_short_term_memory}\n\nHere is the relevant memory:{agent_relevant_memory}\n\nHere is the new chat history:\n\n{new_conversations}"
 
 
 class Environment:
@@ -29,11 +19,6 @@ class Environment:
     def __init__(self, agents: Dict[str, Agent], llms: Dict[str, Any],
                  ai_agent_name: str, memory_max_token_limit: int,
                  api_key: str) -> None:
-        self.shared_memory = {
-            "long_term_memory": [],
-            "chat_embeddings": [],
-            "short_term_memory": None
-        }
         self.agents = agents
         self.curr_chat_history_idx = 0
         self.llms = llms
@@ -57,7 +42,7 @@ class Environment:
         llms = {}
         for state_name in config.get("states", {}).keys():
             if state_name != config.get("end_state"):
-                llms[state_name] = init_llm()
+                llms[state_name] = OpenAILLM()
 
         ai_agent_name = next(
             (agent_name for agent_name in config.get("agents", {})
@@ -73,11 +58,8 @@ class Environment:
         chat_messages = extract_formatted_chat_messages(self.memory)
         return self.memory.moving_summary_buffer, chat_messages
 
-    def update_memory(self, memory: Memory, curr_state: str):
-        agent_name = memory.send_name
-        if agent_name == "User":
-            append_memory_buffer(self.memory, user_message=memory.content)
+    def record_action(self, action: Action, curr_state: State):
+        if action.is_user:
+            append_memory_buffer(self.memory, user_message=action.response)
         else:
-            append_memory_buffer(self.memory, ai_message=memory.content)
-
-        self.shared_memory["long_term_memory"].append(memory)
+            append_memory_buffer(self.memory, ai_message=action.response)

@@ -1,9 +1,7 @@
 {
     "config": {
-      "API_KEY": "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",
-      "MAX_CHAT_HISTORY": "10",
-      "CONV_SUMMARY_MEM_TOKEN_LIMIT": 250,
-      "TOP_K": "3"
+      "API_KEY": "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",
+      "CONV_SUMMARY_MEM_TOKEN_LIMIT": 250
     },
     "root": "ResponseState",
     "relations": {
@@ -15,7 +13,6 @@
       "ResponseState": {
         "controller": {
           "controller_type": "order",
-          "max_chat_nums": 5,
           "judge_system_prompt": "",
           "judge_last_prompt": "",
           "judge_extract_words": "end"
@@ -41,6 +38,6 @@
     },
     "agents": {
       "Detective": {},
-      "User": {}
+      "User": {"is_user": true}
     }
   }  
